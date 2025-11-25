@@ -1,0 +1,64 @@
+---
+title: "Atividade 3"
+author: "Julia"
+date: "2025-11-24"
+categories: [python, código]
+image: "LinearRegression.svg"
+jupyter: python3
+---
+
+Abaixo terá o código da atividade 3 com o código explicado em comentários.
+
+```{python}
+import numpy as np
+import pandas as pd
+import plotly.express as px
+
+# Etapa 1: Carregar dados de entrada (X = anos de estudo, Y = salário)
+dados_x = np.loadtxt("X.txt")
+dados_y = np.loadtxt("Y.txt")
+
+# Ajustar formato para vetor coluna
+X = dados_x.reshape(-1, 1)
+Y = dados_y.reshape(-1, 1)
+
+# Etapa 2: Construir matriz de regressão
+# Fórmula: β = (XᵀX)⁻¹ XᵀY
+matriz_X = np.column_stack((np.ones(len(X)), X))
+coeficientes = np.linalg.inv(matriz_X.T @ matriz_X) @ (matriz_X.T @ Y)
+
+intercepto = float(coeficientes[0])   # valor inicial da reta
+inclinação = float(coeficientes[1])   # coeficiente angular
+
+print("Parâmetros da regressão:")
+print("Intercepto (a) =", intercepto)
+print("Inclinação (b) =", inclinação)
+
+# Etapa 3: Criar DataFrame com pontos e reta ajustada
+tabela = pd.DataFrame({
+    "anos_estudo": dados_x,
+    "salario": dados_y,
+    "reta": intercepto + inclinação * dados_x
+})
+
+# Etapa 4: Construir gráfico interativo
+grafico = px.scatter(
+    tabela,
+    x="anos_estudo",
+    y="salario",
+    title="Relação entre Anos de Estudo e Salário",
+    labels={"anos_estudo": "Anos de Estudo", "salario": "Salário (R$)"}
+)
+
+# Adicionar linha da regressão
+grafico.add_traces(
+    px.line(
+        tabela,
+        x="anos_estudo",
+        y="reta"
+    ).data
+)
+
+# Exibir gráfico
+grafico.show()
+```

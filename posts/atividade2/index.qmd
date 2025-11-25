@@ -1,0 +1,92 @@
+---
+title: "Atividade 2"
+author: "Julia"
+date: "2025-11-24"
+categories: [python, código]
+image: "frota.png"
+jupyter: python3
+---
+
+Abaixo terá o código da atividade 2 com o código explicado em comentários.
+
+```{python}
+import requests
+import folium
+import json
+
+# Etapa 1: Definições iniciais
+API_TOKEN = "d1a401756017d338d7952e806dbba6d718d09c130a6261fd2b25bc2bb5b5a079"
+codigo_linha = "709EX1"
+
+# Etapa 2: Autenticação na API
+sessao = requests.Session()
+url_login = f"http://api.olhovivo.sptrans.com.br/v2.1/Login/Autenticar?token={API_TOKEN}"
+login = sessao.post(url_login)
+
+if login.status_code == 200 and login.json() is True:
+    print("Login realizado com sucesso!")
+else:
+    print("Falha na autenticação. Confira o token.")
+
+# Etapa 3: Obter paradas da linha
+url_paradas = f"http://api.olhovivo.sptrans.com.br/v2.1/ParadaLinha?codigoLinha={codigo_linha}"
+dados_paradas = sessao.get(url_paradas).json()
+if isinstance(dados_paradas, str):
+    dados_paradas = json.loads(dados_paradas)
+elif isinstance(dados_paradas, dict) and "value" in dados_paradas:
+    dados_paradas = dados_paradas["value"]
+
+# Etapa 4: Posições dos ônibus em tempo real
+url_onibus = f"http://api.olhovivo.sptrans.com.br/v2.1/Posicao?codigoLinha={codigo_linha}"
+dados_onibus = sessao.get(url_onibus).json()
+if isinstance(dados_onibus, str):
+    dados_onibus = json.loads(dados_onibus)
+elif isinstance(dados_onibus, dict) and "value" in dados_onibus:
+    dados_onibus = dados_onibus["value"]
+
+# Etapa 5: Trajeto da linha
+url_trajeto = f"http://api.olhovivo.sptrans.com.br/v2.1/Linha/Trajeto?codigoLinha={codigo_linha}"
+dados_trajeto = sessao.get(url_trajeto).json()
+if isinstance(dados_trajeto, str):
+    dados_trajeto = json.loads(dados_trajeto)
+elif isinstance(dados_trajeto, dict) and "value" in dados_trajeto:
+    dados_trajeto = dados_trajeto["value"]
+
+# Extrair coordenadas do trajeto
+coords_trajeto = []
+if isinstance(dados_trajeto, list):
+    for ponto in dados_trajeto:
+        if "Latitude" in ponto and "Longitude" in ponto:
+            coords_trajeto.append([ponto["Latitude"], ponto["Longitude"]])
+
+# Etapa 6: Construção do mapa
+mapa = folium.Map(location=[-23.55, -46.63], zoom_start=12)
+
+# Adicionar trajeto (linha verde)
+if coords_trajeto:
+    folium.PolyLine(coords_trajeto, color="green", weight=4, opacity=0.6,
+                    tooltip="Percurso da linha").add_to(mapa)
+
+# Adicionar paradas (azul)
+if isinstance(dados_paradas, list):
+    for parada in dados_paradas:
+        if "Latitude" in parada and "Longitude" in parada:
+            folium.Marker(
+                location=[parada["Latitude"], parada["Longitude"]],
+                popup=f"Parada: {parada.get('Denominacao', 'Sem nome')}",
+                icon=folium.Icon(color="blue", icon="info-sign")
+            ).add_to(mapa)
+
+# Adicionar ônibus em tempo real (vermelho)
+if isinstance(dados_onibus, dict) and "vs" in dados_onibus:
+    for veiculo in dados_onibus["vs"]:
+        folium.Marker(
+            location=[veiculo["py"], veiculo["px"]],
+            popup=f"Prefixo: {veiculo['p']}",
+            icon=folium.Icon(color="red", icon="bus", prefix="fa")
+        ).add_to(mapa)
+
+# Etapa 7: Exportar mapa
+mapa.save("linha_onibus.html")
+print("Mapa pronto: abra 'linha_onibus.html' no navegador.")
+```

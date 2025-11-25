@@ -1,0 +1,71 @@
+---
+title: "Atividade 1"
+author: "Julia"
+date: "2025-11-24"
+categories: [python, código]
+image: "dolar.jpg"
+jupyter: python3
+---
+
+Abaixo terá o código da atividade 1 com o código explicado em comentários.
+
+```{python}
+
+import requests
+import pandas as pd
+import plotly.express as px
+import calendar
+from datetime import datetime
+
+def consultar_dolar(mes_ano: str):
+    # Etapa 1: transformar "MMYYYY" em datas inicial e final
+    inicio = datetime.strptime(mes_ano, "%m%Y")
+    ultimo_dia = calendar.monthrange(inicio.year, inicio.month)[1]
+    fim = inicio.replace(day=ultimo_dia)
+
+    # Ajustar formato para a API
+    dt_inicio = inicio.strftime("%m-%d-%Y")
+    dt_fim = fim.strftime("%m-%d-%Y")
+
+    # Etapa 2: chamada à API PTAX
+    url = (
+        "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/"
+        f"CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?"
+        f"@dataInicial='{dt_inicio}'&@dataFinalCotacao='{dt_fim}'&$top=1000&$format=json"
+    )
+    resposta = requests.get(url)
+    registros = resposta.json().get("value", [])
+
+    if not registros:
+        print("Nenhum dado encontrado para o período informado.")
+        return
+
+    # Etapa 3: organizar os dados em DataFrame
+    df = pd.DataFrame(registros)
+    df["dataHoraCotacao"] = pd.to_datetime(df["dataHoraCotacao"])
+    df["dia"] = df["dataHoraCotacao"].dt.date
+    df = df.sort_values("dia")
+
+    # Criar série diária completa
+    todos_dias = pd.date_range(inicio, fim, freq="D")
+    df_diario = pd.DataFrame({"dia": todos_dias.date})
+    df_diario = df_diario.merge(df[["dia", "cotacaoCompra"]], on="dia", how="left")
+
+    # Tratar valores ausentes
+    df_diario["cotacaoCompra"] = pd.to_numeric(df_diario["cotacaoCompra"], errors="coerce")
+    df_diario["cotacaoCompra"].fillna(method="ffill", inplace=True)
+
+    # Etapa 4: gerar gráfico
+    grafico = px.line(
+        df_diario,
+        x="dia",
+        y="cotacaoCompra",
+        title=f"Cotação do Dólar - {mes_ano}",
+        labels={"dia": "Data", "cotacaoCompra": "Valor (R$)"}
+    )
+    grafico.show()
+
+# Chamada correta
+consultar_dolar("082017")
+
+```
